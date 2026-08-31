@@ -75,3 +75,9 @@ pids
 .npm
 .eslintcache
 .turbo/
+
+/src/generated/prisma
+
+.agents
+.claude
+.windsurf
