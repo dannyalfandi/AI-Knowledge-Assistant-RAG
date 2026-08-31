@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoleType {
+  ADMIN
+  USER
+}
+
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  INDEXED
+  FAILED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+enum FeedbackType {
+  POSITIVE
+  NEGATIVE
+}
+
+model Role {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      RoleType @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  roleId       String   @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  role          Role           @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  conversations Conversation[]
+  documents     Document[]
+  feedbacks     Feedback[]
+
+  @@index([roleId])
+  @@map("users")
+}
+
+model Document {
+  id           String         @id @default(uuid()) @db.Uuid
+  uploadedById String         @db.Uuid
+  originalName String         @map("original_name")
+  storedName   String         @map("stored_name")
+  filePath     String         @map("file_path")
+  mimeType     String         @map("mime_type")
+  fileSize     BigInt         @map("file_size")
+  status       DocumentStatus @default(PENDING)
+  errorMessage String?        @map("error_message")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  uploadedBy User            @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  chunks     DocumentChunk[]
+
+  @@index([uploadedById])
+  @@index([status])
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id         String   @id @default(uuid()) @db.Uuid
+  documentId String   @db.Uuid
+  content    String
+  chunkIndex Int      @map("chunk_index")
+  pageNumber Int?     @map("page_number")
+  tokenCount Int?     @map("token_count")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  document Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sources  MessageSource[]
+
+  @@unique([documentId, chunkIndex])
+  @@index([documentId])
+  @@map("document_chunks")
+}
+
+model Conversation {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  title     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([userId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String      @id @default(uuid()) @db.Uuid
+  conversationId String      @db.Uuid
+  role           MessageRole
+  content        String
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  conversation Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sources      MessageSource[]
+  feedbacks    Feedback[]
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+model MessageSource {
+  id              String   @id @default(uuid()) @db.Uuid
+  messageId       String   @db.Uuid
+  documentChunkId String   @db.Uuid
+  similarityScore Float    @map("similarity_score")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  message       Message       @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  documentChunk DocumentChunk @relation(fields: [documentChunkId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([documentChunkId])
+  @@map("message_sources")
+}
+
+model Feedback {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @db.Uuid
+  messageId String       @db.Uuid
+  type      FeedbackType
+  comment   String?
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, messageId])
+  @@index([userId])
+  @@index([messageId])
+  @@map("feedback")
+}
