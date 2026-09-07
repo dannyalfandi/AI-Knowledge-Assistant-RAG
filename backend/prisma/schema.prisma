@@ -89,12 +89,31 @@ model DocumentChunk {
   tokenCount Int?     @map("token_count")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  document Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  sources  MessageSource[]
+  document   Document                 @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sources    MessageSource[]
+  embeddings DocumentChunkEmbedding[]
 
   @@unique([documentId, chunkIndex])
   @@index([documentId])
   @@map("document_chunks")
+}
+
+model DocumentChunkEmbedding {
+  id              String                @id @default(uuid()) @db.Uuid
+  documentChunkId String                @db.Uuid
+  provider        String
+  model           String
+  dimensions      Int
+  embedding       Unsupported("vector")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  documentChunk DocumentChunk @relation(fields: [documentChunkId], references: [id], onDelete: Cascade)
+
+  @@unique([documentChunkId, provider, model])
+  @@index([documentChunkId])
+  @@index([provider, model])
+  @@map("document_chunk_embeddings")
 }
 
 model Conversation {

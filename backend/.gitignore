@@ -81,3 +81,6 @@ pids
 .agents
 .claude
 .windsurf
+
+storage/documents/*
+!storage/documents/.gitkeep
