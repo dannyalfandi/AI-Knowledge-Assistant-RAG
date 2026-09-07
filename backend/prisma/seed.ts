@@ -11,6 +11,12 @@ const adminPassword = process.env.SEED_ADMIN_PASSWORD;
 
 const adminName = process.env.SEED_ADMIN_NAME ?? "Development Admin";
 
+const userEmail = process.env.SEED_USER_EMAIL;
+
+const userPassword = process.env.SEED_USER_PASSWORD;
+
+const userName = process.env.SEED_USER_NAME ?? "Development User";
+
 if (!connectionString) {
   throw new Error("DATABASE_URL is not defined");
 }
@@ -80,6 +86,37 @@ async function main() {
     id: adminUser.id,
     email: adminUser.email,
     role: adminRole.name,
+  });
+
+  if (!userEmail || !userPassword) {
+    throw new Error("SEED_USER_EMAIL and SEED_USER_PASSWORD must be defined");
+  }
+
+  // Create development user
+  const userPasswordHash = await argon2.hash(userPassword);
+
+  const user = await prisma.user.upsert({
+    where: {
+      email: userEmail,
+    },
+    update: {
+      roleId: userRole.id,
+      name: userName,
+      isActive: true,
+    },
+    create: {
+      roleId: userRole.id,
+      email: userEmail,
+      passwordHash: userPasswordHash,
+      name: userName,
+      isActive: true,
+    },
+  });
+
+  console.log("Development user created:", {
+    id: user.id,
+    email: user.email,
+    role: userRole.name,
   });
 
   console.log("Database seed completed successfully.");
