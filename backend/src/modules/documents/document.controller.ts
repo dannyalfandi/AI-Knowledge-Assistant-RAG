@@ -9,9 +9,13 @@ import {
   listDocuments,
 } from "./document.service.js";
 
-import { documentIdSchema } from "./document.validation.js";
+import type { DocumentIdInput } from "./document.validation.js";
 import { deleteStoredFile } from "../../services/storage/local-storage.service.js";
 import { startPdfProcessing } from "./document-processing.service.js";
+
+function documentId(req: AuthenticatedRequest): string {
+  return (req.params as unknown as DocumentIdInput).id;
+}
 
 export async function listDocumentsController(
   _req: AuthenticatedRequest,
@@ -39,16 +43,8 @@ export async function getDocumentController(
   req: AuthenticatedRequest,
   res: Response,
 ) {
-  const result = documentIdSchema.safeParse(req.params);
-
-  if (!result.success) {
-    return res.status(400).json({
-      message: "Invalid document ID",
-    });
-  }
-
   try {
-    const document = await getDocumentById(result.data.id);
+    const document = await getDocumentById(documentId(req));
 
     if (!document) {
       return res.status(404).json({
@@ -126,16 +122,8 @@ export async function deleteDocumentController(
   req: AuthenticatedRequest,
   res: Response,
 ) {
-  const result = documentIdSchema.safeParse(req.params);
-
-  if (!result.success) {
-    return res.status(400).json({
-      message: "Invalid document ID",
-    });
-  }
-
   try {
-    const document = await deleteDocument(result.data.id);
+    const document = await deleteDocument(documentId(req));
 
     if (!document) {
       return res.status(404).json({
@@ -157,16 +145,8 @@ export async function processDocumentController(
   req: AuthenticatedRequest,
   res: Response,
 ) {
-  const result = documentIdSchema.safeParse(req.params);
-
-  if (!result.success) {
-    return res.status(400).json({
-      message: "Invalid document ID",
-    });
-  }
-
   try {
-    const processing = await startPdfProcessing(result.data.id);
+    const processing = await startPdfProcessing(documentId(req));
 
     return res.status(202).json({
       data: processing,
