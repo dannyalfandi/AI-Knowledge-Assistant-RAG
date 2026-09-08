@@ -1,8 +1,8 @@
-import prisma from "../../config/database.js";
 import { extractPdfText } from "../../services/document/pdf-extraction.service.js";
 import { chunkPages } from "../../services/document/text-chunking.service.js";
-import { replaceDocumentChunks } from "../../services/document/document-chunk.service.js";
+import { replaceDocumentChunks } from "../../services/document/document.repository.js";
 import { indexDocumentChunks } from "../../services/document/document-indexing.service.js";
+import * as documentRepository from "./document.repository.js";
 
 async function runPdfProcessing(documentId: string, filePath: string) {
   try {
@@ -21,15 +21,7 @@ async function runPdfProcessing(documentId: string, filePath: string) {
     await replaceDocumentChunks(documentId, chunks);
     await indexDocumentChunks(documentId);
 
-    await prisma.document.update({
-      where: {
-        id: documentId,
-      },
-      data: {
-        status: "INDEXED",
-        errorMessage: null,
-      },
-    });
+    await documentRepository.updateStatus(documentId, "INDEXED");
   } catch (error) {
     const errorMessage =
       error instanceof Error
@@ -38,16 +30,8 @@ async function runPdfProcessing(documentId: string, filePath: string) {
 
     console.error(`Document processing failed for ${documentId}:`, error);
 
-    await prisma.document
-      .update({
-        where: {
-          id: documentId,
-        },
-        data: {
-          status: "FAILED",
-          errorMessage,
-        },
-      })
+    await documentRepository
+      .updateStatus(documentId, "FAILED", errorMessage)
       .catch((updateError) => {
         console.error(
           `Failed to mark document ${documentId} as FAILED:`,
@@ -58,11 +42,7 @@ async function runPdfProcessing(documentId: string, filePath: string) {
 }
 
 async function beginProcessing(documentId: string) {
-  const document = await prisma.document.findUnique({
-    where: {
-      id: documentId,
-    },
-  });
+  const document = await documentRepository.findDocumentById(documentId);
 
   if (!document) {
     throw new Error("Document not found");
@@ -72,15 +52,7 @@ async function beginProcessing(documentId: string) {
     throw new Error("Document is already being processed");
   }
 
-  await prisma.document.update({
-    where: {
-      id: document.id,
-    },
-    data: {
-      status: "PROCESSING",
-      errorMessage: null,
-    },
-  });
+  await documentRepository.updateStatus(document.id, "PROCESSING");
 
   return document;
 }
@@ -115,14 +87,5 @@ export async function reprocessDocument(documentId: string) {
 
   await runPdfProcessing(document.id, document.filePath);
 
-  return prisma.document.findUnique({
-    where: {
-      id: document.id,
-    },
-    select: {
-      id: true,
-      status: true,
-      errorMessage: true,
-    },
-  });
+  return documentRepository.findDocumentStatusById(document.id);
 }

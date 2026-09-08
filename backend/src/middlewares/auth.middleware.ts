@@ -2,12 +2,28 @@ import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
 import { env } from "../config/env.js";
+import { UnauthorizedError } from "../utils/errors.js";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
     role: string;
   };
+}
+
+/**
+ * Reads the authenticated user's id off a request the {@link authenticate}
+ * middleware has processed. `req.user` is always set on a route guarded by
+ * `authenticate`; this accessor exists only because TypeScript cannot prove
+ * that, and it throws (rather than returning `undefined`) if the guard was
+ * somehow skipped.
+ */
+export function requireUserId(req: AuthenticatedRequest): string {
+  if (!req.user) {
+    throw new UnauthorizedError();
+  }
+
+  return req.user.id;
 }
 
 interface JwtPayload {

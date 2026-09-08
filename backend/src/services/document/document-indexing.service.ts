@@ -1,19 +1,14 @@
-import prisma from "../../config/database.js";
 import {
   generateEmbedding,
   getEmbeddingProvider,
 } from "../ai/embedding/embedding.service.js";
-import { saveDocumentChunkEmbedding } from "./document-embedding.service.js";
+import {
+  findDocumentChunks,
+  upsertDocumentChunkEmbedding,
+} from "./document.repository.js";
 
 export async function indexDocumentChunks(documentId: string) {
-  const chunks = await prisma.documentChunk.findMany({
-    where: {
-      documentId,
-    },
-    orderBy: {
-      chunkIndex: "asc",
-    },
-  });
+  const chunks = await findDocumentChunks(documentId);
 
   if (chunks.length === 0) {
     throw new Error("Document has no chunks to index");
@@ -26,7 +21,7 @@ export async function indexDocumentChunks(documentId: string) {
   for (const chunk of chunks) {
     const embedding = await generateEmbedding(chunk.content, "passage");
 
-    await saveDocumentChunkEmbedding(chunk.id, {
+    await upsertDocumentChunkEmbedding(chunk.id, {
       embedding,
       provider: provider.provider,
       model: provider.model,

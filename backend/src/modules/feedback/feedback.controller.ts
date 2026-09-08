@@ -1,20 +1,14 @@
 import type { Response } from "express";
 
-import type { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
-import { UnauthorizedError } from "../../utils/errors.js";
+import {
+  requireUserId,
+  type AuthenticatedRequest,
+} from "../../middlewares/auth.middleware.js";
 import * as feedbackService from "./feedback.service.js";
 import type {
   MessageIdParam,
   UpsertFeedbackInput,
 } from "./feedback.validation.js";
-
-function requireUserId(req: AuthenticatedRequest): string {
-  if (!req.user) {
-    throw new UnauthorizedError();
-  }
-
-  return req.user.id;
-}
 
 function messageId(req: AuthenticatedRequest): string {
   return (req.params as unknown as MessageIdParam).messageId;
