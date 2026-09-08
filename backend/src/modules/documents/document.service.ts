@@ -1,64 +1,12 @@
-import prisma from "../../config/database.js";
 import { deleteStoredFile } from "../../services/storage/local-storage.service.js";
+import * as documentRepository from "./document.repository.js";
 
 export async function listDocuments() {
-  return prisma.document.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-    select: {
-      id: true,
-      originalName: true,
-      mimeType: true,
-      fileSize: true,
-      status: true,
-      errorMessage: true,
-      createdAt: true,
-      updatedAt: true,
-      uploadedBy: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-      _count: {
-        select: {
-          chunks: true,
-        },
-      },
-    },
-  });
+  return documentRepository.listDocuments();
 }
 
 export async function getDocumentById(id: string) {
-  return prisma.document.findUnique({
-    where: {
-      id,
-    },
-    select: {
-      id: true,
-      originalName: true,
-      mimeType: true,
-      fileSize: true,
-      status: true,
-      errorMessage: true,
-      createdAt: true,
-      updatedAt: true,
-      uploadedBy: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-      _count: {
-        select: {
-          chunks: true,
-        },
-      },
-    },
-  });
+  return documentRepository.findDocumentDetailById(id);
 }
 
 export async function createDocument(input: {
@@ -69,58 +17,17 @@ export async function createDocument(input: {
   mimeType: string;
   fileSize: number;
 }) {
-  return prisma.document.create({
-    data: {
-      uploadedById: input.uploadedById,
-      originalName: input.originalName,
-      storedName: input.storedName,
-      filePath: input.filePath,
-      mimeType: input.mimeType,
-      fileSize: BigInt(input.fileSize),
-      status: "PENDING",
-    },
-  });
-}
-
-export async function updateDocumentStatus(
-  id: string,
-  status: "PENDING" | "PROCESSING" | "INDEXED" | "FAILED",
-  errorMessage?: string,
-) {
-  return prisma.document.update({
-    where: {
-      id,
-    },
-    data: {
-      status,
-      errorMessage:
-        status === "FAILED"
-          ? (errorMessage ?? "Document processing failed")
-          : null,
-    },
-  });
+  return documentRepository.createDocument(input);
 }
 
 export async function deleteDocument(id: string) {
-  const document = await prisma.document.findUnique({
-    where: {
-      id,
-    },
-    select: {
-      id: true,
-      filePath: true,
-    },
-  });
+  const document = await documentRepository.findDocumentPathById(id);
 
   if (!document) {
     return null;
   }
 
-  await prisma.document.delete({
-    where: {
-      id,
-    },
-  });
+  await documentRepository.deleteDocumentById(id);
 
   try {
     await deleteStoredFile(document.filePath);
