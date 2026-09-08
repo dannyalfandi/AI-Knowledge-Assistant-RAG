@@ -4,6 +4,7 @@ import { authenticate } from "../../middlewares/auth.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 
 import {
+  askController,
   createConversationController,
   createMessageController,
   deleteConversationController,
@@ -11,6 +12,7 @@ import {
   listConversationsController,
 } from "./conversation.controller.js";
 import {
+  askSchema,
   conversationIdParamSchema,
   createConversationSchema,
   createMessageSchema,
@@ -53,6 +55,14 @@ router.post(
   validate(conversationIdParamSchema, "params"),
   validate(createMessageSchema),
   createMessageController,
+);
+
+router.post(
+  "/:id/ask",
+  authenticate,
+  validate(conversationIdParamSchema, "params"),
+  validate(askSchema),
+  askController,
 );
 
 export default router;
