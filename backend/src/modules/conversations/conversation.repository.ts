@@ -98,3 +98,48 @@ export async function createUserMessage(conversationId: string, content: string)
     return message;
   });
 }
+
+export interface MessageSourceInput {
+  documentChunkId: string;
+  similarityScore: number;
+}
+
+export async function createAssistantMessageWithSources(
+  conversationId: string,
+  content: string,
+  sources: MessageSourceInput[],
+) {
+  return prisma.$transaction(async (tx) => {
+    const message = await tx.message.create({
+      data: {
+        conversationId,
+        role: "ASSISTANT",
+        content,
+      },
+      select: {
+        id: true,
+        conversationId: true,
+        role: true,
+        content: true,
+        createdAt: true,
+      },
+    });
+
+    if (sources.length > 0) {
+      await tx.messageSource.createMany({
+        data: sources.map((source) => ({
+          messageId: message.id,
+          documentChunkId: source.documentChunkId,
+          similarityScore: source.similarityScore,
+        })),
+      });
+    }
+
+    await tx.conversation.update({
+      where: { id: conversationId },
+      data: {},
+    });
+
+    return message;
+  });
+}
