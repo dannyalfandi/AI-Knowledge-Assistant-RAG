@@ -1,7 +1,9 @@
 import type { Response } from "express";
 
-import type { AuthenticatedRequest } from "../../middlewares/auth.middleware.js";
-import { UnauthorizedError } from "../../utils/errors.js";
+import {
+  requireUserId,
+  type AuthenticatedRequest,
+} from "../../middlewares/auth.middleware.js";
 import * as conversationRagService from "./conversation.rag.service.js";
 import * as conversationService from "./conversation.service.js";
 import type {
@@ -11,14 +13,6 @@ import type {
   CreateMessageInput,
   ListConversationsQuery,
 } from "./conversation.validation.js";
-
-function requireUserId(req: AuthenticatedRequest): string {
-  if (!req.user) {
-    throw new UnauthorizedError();
-  }
-
-  return req.user.id;
-}
 
 function conversationId(req: AuthenticatedRequest): string {
   return (req.params as unknown as ConversationIdParam).id;

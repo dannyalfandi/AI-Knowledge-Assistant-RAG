@@ -8,10 +8,11 @@ import {
   authenticate,
   type AuthenticatedRequest,
 } from "./middlewares/auth.middleware.js";
-import { authorize } from "./middlewares/role.middleware.js";
 import documentRoutes from "./modules/documents/document.routes.js";
 import searchRoutes from "./modules/search/search.routes.js";
 import conversationRoutes from "./modules/conversations/conversation.routes.js";
+import feedbackRoutes from "./modules/feedback/feedback.routes.js";
+import adminRoutes from "./modules/admin/admin.routes.js";
 import {
   errorHandler,
   notFoundHandler,
@@ -37,19 +38,17 @@ app.use("/api/search", searchRoutes);
 
 app.use("/api/conversations", conversationRoutes);
 
+app.use("/api/messages", feedbackRoutes);
+
 app.use("/api/auth", authRoutes);
 
 app.get("/api/auth/me", authenticate, (req: AuthenticatedRequest, res) => {
   return res.status(200).json({
-    user: req.user,
+    data: { user: req.user },
   });
 });
 
-app.get("/api/admin/test", authenticate, authorize("ADMIN"), (_req, res) => {
-  return res.status(200).json({
-    message: "You have ADMIN access",
-  });
-});
+app.use("/api/admin", adminRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

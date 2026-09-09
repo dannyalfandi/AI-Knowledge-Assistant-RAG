@@ -1,126 +1,69 @@
-import prisma from "../../config/database.js";
 import { deleteStoredFile } from "../../services/storage/local-storage.service.js";
+import { BadRequestError, NotFoundError } from "../../utils/errors.js";
+import * as documentRepository from "./document.repository.js";
+
+/** The fields the upload flow consumes from a stored Multer file. */
+export interface UploadedFile {
+  originalname: string;
+  filename: string;
+  path: string;
+  mimetype: string;
+  size: number;
+}
 
 export async function listDocuments() {
-  return prisma.document.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-    select: {
-      id: true,
-      originalName: true,
-      mimeType: true,
-      fileSize: true,
-      status: true,
-      errorMessage: true,
-      createdAt: true,
-      updatedAt: true,
-      uploadedBy: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-      _count: {
-        select: {
-          chunks: true,
-        },
-      },
-    },
-  });
+  return documentRepository.listDocuments();
 }
 
 export async function getDocumentById(id: string) {
-  return prisma.document.findUnique({
-    where: {
-      id,
-    },
-    select: {
-      id: true,
-      originalName: true,
-      mimeType: true,
-      fileSize: true,
-      status: true,
-      errorMessage: true,
-      createdAt: true,
-      updatedAt: true,
-      uploadedBy: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-      _count: {
-        select: {
-          chunks: true,
-        },
-      },
-    },
-  });
+  const document = await documentRepository.findDocumentDetailById(id);
+
+  if (!document) {
+    throw new NotFoundError("Document not found");
+  }
+
+  return document;
 }
 
-export async function createDocument(input: {
-  uploadedById: string;
-  originalName: string;
-  storedName: string;
-  filePath: string;
-  mimeType: string;
-  fileSize: number;
-}) {
-  return prisma.document.create({
-    data: {
-      uploadedById: input.uploadedById,
-      originalName: input.originalName,
-      storedName: input.storedName,
-      filePath: input.filePath,
-      mimeType: input.mimeType,
-      fileSize: BigInt(input.fileSize),
-      status: "PENDING",
-    },
-  });
-}
-
-export async function updateDocumentStatus(
-  id: string,
-  status: "PENDING" | "PROCESSING" | "INDEXED" | "FAILED",
-  errorMessage?: string,
+export async function createDocumentFromUpload(
+  uploadedById: string,
+  file: UploadedFile | undefined,
 ) {
-  return prisma.document.update({
-    where: {
-      id,
-    },
-    data: {
-      status,
-      errorMessage:
-        status === "FAILED"
-          ? (errorMessage ?? "Document processing failed")
-          : null,
-    },
-  });
+  if (!file) {
+    throw new BadRequestError("Document file is required");
+  }
+
+  try {
+    return await documentRepository.createDocument({
+      uploadedById,
+      originalName: file.originalname,
+      storedName: file.filename,
+      filePath: file.path,
+      mimeType: file.mimetype,
+      fileSize: file.size,
+    });
+  } catch (error) {
+    // Multer has already written the file to disk; if persisting the row
+    // fails, remove the orphaned file before rethrowing so storage doesn't leak.
+    await deleteStoredFile(file.path).catch((cleanupError) => {
+      console.error(
+        `Failed to clean up orphaned upload ${file.path}:`,
+        cleanupError,
+      );
+    });
+
+    throw error;
+  }
 }
 
 export async function deleteDocument(id: string) {
-  const document = await prisma.document.findUnique({
-    where: {
-      id,
-    },
-    select: {
-      id: true,
-      filePath: true,
-    },
-  });
+  const document = await documentRepository.findDocumentPathById(id);
 
   if (!document) {
-    return null;
+    throw new NotFoundError("Document not found");
   }
 
-  await prisma.document.delete({
-    where: {
-      id,
-    },
-  });
+  await documentRepository.deleteDocumentById(id);
 
   try {
     await deleteStoredFile(document.filePath);

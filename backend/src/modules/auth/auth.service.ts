@@ -2,32 +2,26 @@ import argon2 from "argon2";
 import jwt from "jsonwebtoken";
 import type { SignOptions } from "jsonwebtoken";
 
-import prisma from "../../config/database.js";
 import { env } from "../../config/env.js";
+import { UnauthorizedError } from "../../utils/errors.js";
+import * as authRepository from "./auth.repository.js";
 import type { LoginInput } from "./auth.validation.js";
 
 export async function login(input: LoginInput) {
-  const user = await prisma.user.findUnique({
-    where: {
-      email: input.email,
-    },
-    include: {
-      role: true,
-    },
-  });
+  const user = await authRepository.findUserByEmailWithRole(input.email);
 
   if (!user) {
-    throw new Error("Invalid email or password");
+    throw new UnauthorizedError("Invalid email or password");
   }
 
   if (!user.isActive) {
-    throw new Error("User account is inactive");
+    throw new UnauthorizedError("User account is inactive");
   }
 
   const passwordValid = await argon2.verify(user.passwordHash, input.password);
 
   if (!passwordValid) {
-    throw new Error("Invalid email or password");
+    throw new UnauthorizedError("Invalid email or password");
   }
 
   const accessToken = jwt.sign(

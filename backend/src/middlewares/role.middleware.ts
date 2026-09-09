@@ -1,21 +1,19 @@
 import type { NextFunction, Request, Response } from "express";
 
+import { ForbiddenError, UnauthorizedError } from "../utils/errors.js";
+
 import type { AuthenticatedRequest } from "./auth.middleware.js";
 
 export function authorize(...allowedRoles: string[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, _res: Response, next: NextFunction) => {
     const authenticatedRequest = req as AuthenticatedRequest;
 
     if (!authenticatedRequest.user) {
-      return res.status(401).json({
-        message: "Authentication required",
-      });
+      throw new UnauthorizedError();
     }
 
     if (!allowedRoles.includes(authenticatedRequest.user.role)) {
-      return res.status(403).json({
-        message: "Forbidden",
-      });
+      throw new ForbiddenError();
     }
 
     next();
