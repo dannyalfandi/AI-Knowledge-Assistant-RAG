@@ -2,6 +2,7 @@ import { extractPdfText } from "../../services/document/pdf-extraction.service.j
 import { chunkPages } from "../../services/document/text-chunking.service.js";
 import { replaceDocumentChunks } from "../../services/document/document.repository.js";
 import { indexDocumentChunks } from "../../services/document/document-indexing.service.js";
+import { ConflictError, NotFoundError } from "../../utils/errors.js";
 import * as documentRepository from "./document.repository.js";
 
 async function runPdfProcessing(documentId: string, filePath: string) {
@@ -45,11 +46,11 @@ async function beginProcessing(documentId: string) {
   const document = await documentRepository.findDocumentById(documentId);
 
   if (!document) {
-    throw new Error("Document not found");
+    throw new NotFoundError("Document not found");
   }
 
   if (document.status === "PROCESSING") {
-    throw new Error("Document is already being processed");
+    throw new ConflictError("Document is already being processed");
   }
 
   await documentRepository.updateStatus(document.id, "PROCESSING");
