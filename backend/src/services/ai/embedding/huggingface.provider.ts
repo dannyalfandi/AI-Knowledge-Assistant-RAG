@@ -7,7 +7,7 @@ import type {
   EmbeddingProvider,
 } from "./embedding-provider.js";
 
-function toVector(result: unknown): number[] {
+export function toVector(result: unknown): number[] {
   // featureExtraction returns (number | number[] | number[][])[].
   // For a single string input this is normally number[] (already pooled).
   if (!Array.isArray(result) || result.length === 0) {
@@ -62,45 +62,9 @@ export class HuggingFaceEmbeddingProvider implements EmbeddingProvider {
   ): Promise<number[]> {
     const inputs = applyInputPrefix(this.model, text, inputType);
 
-    // TEMP DIAGNOSTIC — remove after embedding pipeline is confirmed working.
-    console.error("[HF][request]", {
+    const result = await this.client.featureExtraction({
       model: this.model,
-      inputType: inputType ?? null,
-      inputPreview: inputs.slice(0, 80),
-      inputLength: inputs.length,
-    });
-
-    let result: unknown;
-
-    try {
-      result = await this.client.featureExtraction({
-        model: this.model,
-        inputs,
-      });
-    } catch (error) {
-      // TEMP DIAGNOSTIC — dump whatever the HF client exposes about the failure.
-      const anyError = error as Record<string, unknown>;
-      console.error("[HF][error]", {
-        name: error instanceof Error ? error.name : typeof error,
-        message: error instanceof Error ? error.message : String(error),
-        status: anyError?.status ?? anyError?.statusCode,
-        httpRequest: anyError?.httpRequest,
-        httpResponse: anyError?.httpResponse,
-        body: anyError?.body,
-        ownProps: Object.getOwnPropertyNames(anyError ?? {}),
-      });
-      throw error;
-    }
-
-    // TEMP DIAGNOSTIC — describe the raw response shape.
-    console.error("[HF][response]", {
-      isArray: Array.isArray(result),
-      length: Array.isArray(result) ? result.length : undefined,
-      firstElementType: Array.isArray(result) ? typeof result[0] : undefined,
-      firstElementIsArray: Array.isArray(result)
-        ? Array.isArray((result as unknown[])[0])
-        : undefined,
-      preview: JSON.stringify(result).slice(0, 300),
+      inputs,
     });
 
     const vector = toVector(result);
