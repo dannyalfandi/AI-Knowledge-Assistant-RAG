@@ -28,6 +28,12 @@ AppException mapDioException(DioException error) {
         );
       }
 
+      if (statusCode == 403) {
+        return ForbiddenException(
+          message ?? 'Anda tidak memiliki akses untuk tindakan ini.',
+        );
+      }
+
       return ApiException(
         message ?? 'Permintaan gagal${statusCode == null ? '' : ' ($statusCode)'}.',
         statusCode: statusCode,

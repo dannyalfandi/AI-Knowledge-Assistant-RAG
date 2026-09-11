@@ -23,6 +23,15 @@ class UnauthorizedException extends ApiException {
   const UnauthorizedException(super.message) : super(statusCode: 401);
 }
 
+/// The session is valid but the signed-in role is not allowed to perform this
+/// action (HTTP 403). The `/api/documents` endpoints, for instance, are
+/// ADMIN-only.
+class ForbiddenException extends ApiException {
+  const ForbiddenException([
+    super.message = 'Anda tidak memiliki akses untuk tindakan ini.',
+  ]) : super(statusCode: 403);
+}
+
 /// Could not reach the server at all (no connection, timeout, DNS, ...).
 class NetworkException extends AppException {
   const NetworkException([
