@@ -52,7 +52,7 @@ describe("upsertFeedback", () => {
     expect(repo.upsertFeedback).not.toHaveBeenCalled();
   });
 
-  it("creates feedback on an ASSISTANT message, normalizing a missing comment to null", async () => {
+  it("leaves the comment untouched when the request carries only a type", async () => {
     repo.findMessageForUser.mockResolvedValue({
       id: MESSAGE_ID,
       role: "ASSISTANT",
@@ -63,9 +63,11 @@ describe("upsertFeedback", () => {
       type: "POSITIVE",
     });
 
+    // `comment` stays undefined rather than becoming null, so flipping a
+    // rating does not wipe a comment the user wrote earlier.
     expect(repo.upsertFeedback).toHaveBeenCalledWith(USER_ID, MESSAGE_ID, {
       type: "POSITIVE",
-      comment: null,
+      comment: undefined,
     });
     expect(result).toBe(savedFeedback);
   });
