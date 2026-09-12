@@ -2,6 +2,7 @@ import { generateCompletion } from "../../services/ai/llm/llm.service.js";
 import { semanticSearch } from "../search/search.service.js";
 import { AppError, NotFoundError } from "../../utils/errors.js";
 import { buildRagMessages, NOT_FOUND_MESSAGE } from "./conversation.rag.prompt.js";
+import { buildAutoTitle } from "./conversation.title.js";
 import * as conversationRepository from "./conversation.repository.js";
 import type { AskInput } from "./conversation.validation.js";
 
@@ -84,10 +85,14 @@ export async function askInConversation(
 
   const { question } = input;
 
-  const userMessage = await conversationRepository.createUserMessage(
-    conversationId,
-    question,
-  );
+  // Decided before anything is written: at this point a freshly created
+  // conversation genuinely has no messages, because the ask flow stores the
+  // question only alongside its answer. An existing title is never replaced,
+  // whether it was set manually or generated from an earlier question.
+  const autoTitle =
+    conversation.title === null && conversation._count.messages === 0
+      ? (buildAutoTitle(question) ?? undefined)
+      : undefined;
 
   const retrieval = await semanticSearch({
     query: question,
@@ -114,19 +119,20 @@ export async function askInConversation(
   // Nothing retrieved: there is nothing to ground on, so skip the LLM call and
   // return the not-found answer directly.
   if (sources.length === 0) {
-    const assistantMessage =
-      await conversationRepository.createAssistantMessageWithSources(
-        conversationId,
-        NOT_FOUND_MESSAGE,
-        [],
-      );
+    const exchange = await conversationRepository.createExchange(
+      conversationId,
+      question,
+      NOT_FOUND_MESSAGE,
+      [],
+      autoTitle,
+    );
 
     return {
       conversationId,
       question,
       answer: NOT_FOUND_MESSAGE,
-      userMessage: toMessagePayload(userMessage),
-      assistantMessage: toMessagePayload(assistantMessage),
+      userMessage: toMessagePayload(exchange.userMessage),
+      assistantMessage: toMessagePayload(exchange.assistantMessage),
       sources: [],
       retrieval: retrievalMeta,
       llm: null,
@@ -140,6 +146,9 @@ export async function askInConversation(
   try {
     completion = await generateCompletion(messages);
   } catch (error) {
+    // Nothing has been written yet: the question is only persisted alongside a
+    // successful answer, so the client can retry without leaving a duplicate
+    // question behind.
     throw new AppError(
       "Gagal mendapatkan jawaban dari LLM",
       502,
@@ -147,22 +156,23 @@ export async function askInConversation(
     );
   }
 
-  const assistantMessage =
-    await conversationRepository.createAssistantMessageWithSources(
-      conversationId,
-      completion.content,
-      sources.map((source) => ({
-        documentChunkId: source.documentChunkId,
-        similarityScore: source.similarityScore,
-      })),
-    );
+  const exchange = await conversationRepository.createExchange(
+    conversationId,
+    question,
+    completion.content,
+    sources.map((source) => ({
+      documentChunkId: source.documentChunkId,
+      similarityScore: source.similarityScore,
+    })),
+    autoTitle,
+  );
 
   return {
     conversationId,
     question,
     answer: completion.content,
-    userMessage: toMessagePayload(userMessage),
-    assistantMessage: toMessagePayload(assistantMessage),
+    userMessage: toMessagePayload(exchange.userMessage),
+    assistantMessage: toMessagePayload(exchange.assistantMessage),
     sources,
     retrieval: retrievalMeta,
     llm: {
