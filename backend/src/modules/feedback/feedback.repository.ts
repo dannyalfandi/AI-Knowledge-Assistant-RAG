@@ -30,22 +30,32 @@ export async function findFeedback(userId: string, messageId: string) {
   });
 }
 
+/**
+ * Creates or updates the caller's feedback for a message.
+ *
+ * `comment` is only written when the caller actually sent one: switching a
+ * rating from positive to negative sends the type alone, and that must not
+ * silently erase a comment the user wrote earlier. Pass `null` explicitly to
+ * clear it.
+ */
 export async function upsertFeedback(
   userId: string,
   messageId: string,
-  input: { type: UpsertFeedbackInput["type"]; comment: string | null },
+  input: { type: UpsertFeedbackInput["type"]; comment?: string | null },
 ) {
+  const hasComment = input.comment !== undefined;
+
   return prisma.feedback.upsert({
     where: { userId_messageId: { userId, messageId } },
     create: {
       userId,
       messageId,
       type: input.type,
-      comment: input.comment,
+      comment: input.comment ?? null,
     },
     update: {
       type: input.type,
-      comment: input.comment,
+      ...(hasComment ? { comment: input.comment } : {}),
     },
     select: feedbackSelect,
   });

@@ -10,7 +10,7 @@ import { NotFoundError } from "../../src/utils/errors.js";
 vi.mock("../../src/modules/conversations/conversation.repository.js", () => ({
   findConversationForUser: vi.fn(),
   createUserMessage: vi.fn(),
-  createAssistantMessageWithSources: vi.fn(),
+  createExchange: vi.fn(),
 }));
 
 vi.mock("../../src/modules/search/search.service.js", () => ({
@@ -54,6 +54,24 @@ const chunk = {
   similarityScore: 0.8,
 };
 
+/** A conversation that already has a title, so no auto-title is generated. */
+function titledConversation() {
+  return {
+    id: CONVERSATION_ID,
+    title: "Judul yang sudah ada",
+    _count: { messages: 2 },
+  };
+}
+
+/** A freshly created conversation: untitled and still empty. */
+function untitledEmptyConversation() {
+  return {
+    id: CONVERSATION_ID,
+    title: null,
+    _count: { messages: 0 },
+  };
+}
+
 function retrievalWith(results: unknown[]) {
   return {
     query: "q",
@@ -66,10 +84,10 @@ function retrievalWith(results: unknown[]) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  repo.createUserMessage.mockResolvedValue(userMessage as never);
-  repo.createAssistantMessageWithSources.mockResolvedValue(
-    assistantMessage as never,
-  );
+  repo.createExchange.mockResolvedValue({
+    userMessage,
+    assistantMessage,
+  } as never);
 });
 
 describe("askInConversation", () => {
@@ -82,14 +100,14 @@ describe("askInConversation", () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
 
-    expect(repo.createUserMessage).not.toHaveBeenCalled();
+    expect(repo.createExchange).not.toHaveBeenCalled();
     expect(search.semanticSearch).not.toHaveBeenCalled();
   });
 
   it("short-circuits without calling the LLM when retrieval returns no chunks", async () => {
-    repo.findConversationForUser.mockResolvedValue({
-      id: CONVERSATION_ID,
-    } as never);
+    repo.findConversationForUser.mockResolvedValue(
+      titledConversation() as never,
+    );
     search.semanticSearch.mockResolvedValue(retrievalWith([]) as never);
 
     const result = await conversationRagService.askInConversation(
@@ -103,17 +121,19 @@ describe("askInConversation", () => {
     expect(result.sources).toEqual([]);
     expect(result.llm).toBeNull();
     expect(result.retrieval.matchCount).toBe(0);
-    expect(repo.createAssistantMessageWithSources).toHaveBeenCalledWith(
+    expect(repo.createExchange).toHaveBeenCalledWith(
       CONVERSATION_ID,
+      "q",
       NOT_FOUND_MESSAGE,
       [],
+      undefined,
     );
   });
 
   it("retrieves, grounds, calls the LLM, and persists every chunk as a source", async () => {
-    repo.findConversationForUser.mockResolvedValue({
-      id: CONVERSATION_ID,
-    } as never);
+    repo.findConversationForUser.mockResolvedValue(
+      titledConversation() as never,
+    );
     search.semanticSearch.mockResolvedValue(retrievalWith([chunk]) as never);
     llm.generateCompletion.mockResolvedValue({
       content: "Refund maksimal 7 hari.",
@@ -140,10 +160,12 @@ describe("askInConversation", () => {
       content: "berapa lama refund?",
     });
 
-    expect(repo.createAssistantMessageWithSources).toHaveBeenCalledWith(
+    expect(repo.createExchange).toHaveBeenCalledWith(
       CONVERSATION_ID,
+      "berapa lama refund?",
       "Refund maksimal 7 hari.",
       [{ documentChunkId: "chunk-1", similarityScore: 0.8 }],
+      undefined,
     );
 
     expect(result.answer).toBe("Refund maksimal 7 hari.");
@@ -167,10 +189,10 @@ describe("askInConversation", () => {
     });
   });
 
-  it("wraps an LLM failure in a 502 AppError; the user message stays persisted", async () => {
-    repo.findConversationForUser.mockResolvedValue({
-      id: CONVERSATION_ID,
-    } as never);
+  it("wraps an LLM failure in a 502 AppError and persists nothing", async () => {
+    repo.findConversationForUser.mockResolvedValue(
+      titledConversation() as never,
+    );
     search.semanticSearch.mockResolvedValue(retrievalWith([chunk]) as never);
     llm.generateCompletion.mockRejectedValue(new Error("groq 500"));
 
@@ -180,7 +202,98 @@ describe("askInConversation", () => {
       }),
     ).rejects.toMatchObject({ statusCode: 502 });
 
-    expect(repo.createUserMessage).toHaveBeenCalledOnce();
-    expect(repo.createAssistantMessageWithSources).not.toHaveBeenCalled();
+    // Nothing is written on failure, so a retry cannot duplicate the question.
+    expect(repo.createExchange).not.toHaveBeenCalled();
+  });
+});
+
+describe("auto-title", () => {
+  beforeEach(() => {
+    search.semanticSearch.mockResolvedValue(retrievalWith([chunk]) as never);
+    llm.generateCompletion.mockResolvedValue({
+      content: "Refund maksimal 7 hari.",
+      provider: "groq",
+      model: "openai/gpt-oss-120b",
+      finishReason: "stop",
+      usage: null,
+    } as never);
+  });
+
+  /** The title handed to `createExchange`, which writes it in the same transaction. */
+  function titleArgument() {
+    return repo.createExchange.mock.calls[0]?.[4];
+  }
+
+  it("names an untitled, empty conversation after its first question", async () => {
+    repo.findConversationForUser.mockResolvedValue(
+      untitledEmptyConversation() as never,
+    );
+
+    await conversationRagService.askInConversation(USER_ID, CONVERSATION_ID, {
+      question: "Berapa lama proses refund?",
+    });
+
+    expect(titleArgument()).toBe("Berapa lama proses refund?");
+  });
+
+  it("truncates a long first question at a word boundary", async () => {
+    repo.findConversationForUser.mockResolvedValue(
+      untitledEmptyConversation() as never,
+    );
+
+    await conversationRagService.askInConversation(USER_ID, CONVERSATION_ID, {
+      question:
+        "Bagaimana prosedur pengajuan refund untuk produk elektronik yang rusak?",
+    });
+
+    const title = titleArgument() as string;
+    expect(title.endsWith("...")).toBe(true);
+    expect(title.length).toBeLessThanOrEqual(53);
+  });
+
+  it("never replaces a title that already exists", async () => {
+    repo.findConversationForUser.mockResolvedValue({
+      id: CONVERSATION_ID,
+      title: "Judul yang sudah ada",
+      _count: { messages: 0 },
+    } as never);
+
+    await conversationRagService.askInConversation(USER_ID, CONVERSATION_ID, {
+      question: "pertanyaan baru",
+    });
+
+    expect(titleArgument()).toBeUndefined();
+  });
+
+  it("leaves a later question in an untitled conversation alone", async () => {
+    // Untitled but not empty: the title was cleared or the first exchange
+    // predates this feature. Naming it from a mid-conversation question would
+    // be misleading.
+    repo.findConversationForUser.mockResolvedValue({
+      id: CONVERSATION_ID,
+      title: null,
+      _count: { messages: 4 },
+    } as never);
+
+    await conversationRagService.askInConversation(USER_ID, CONVERSATION_ID, {
+      question: "pertanyaan lanjutan",
+    });
+
+    expect(titleArgument()).toBeUndefined();
+  });
+
+  it("also names the conversation when retrieval found nothing", async () => {
+    repo.findConversationForUser.mockResolvedValue(
+      untitledEmptyConversation() as never,
+    );
+    search.semanticSearch.mockResolvedValue(retrievalWith([]) as never);
+
+    await conversationRagService.askInConversation(USER_ID, CONVERSATION_ID, {
+      question: "Berapa lama proses refund?",
+    });
+
+    // The short-circuit path stores an exchange too, so it must name the
+    // conversation as well.
+    expect(titleArgument()).toBe("Berapa lama proses refund?");
   });
 });

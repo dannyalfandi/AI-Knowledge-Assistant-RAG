@@ -21,9 +21,11 @@ export async function upsertFeedback(
 ) {
   await assertAssistantMessageForUser(messageId, userId);
 
+  // `comment` stays undefined when the request omitted it, which leaves any
+  // existing comment untouched — a thumbs-up/down toggle carries the type only.
   return feedbackRepository.upsertFeedback(userId, messageId, {
     type: input.type,
-    comment: input.comment ?? null,
+    comment: input.comment,
   });
 }
 

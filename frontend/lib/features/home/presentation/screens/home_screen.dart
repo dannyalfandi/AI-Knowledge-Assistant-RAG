@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../auth/presentation/providers/auth_controller.dart';
+import '../../../chat/presentation/screens/conversation_list_screen.dart';
 import '../../../documents/presentation/screens/documents_screen.dart';
 
 /// Landing screen for a signed-in user. Admin-only entry points are rendered
@@ -45,9 +46,15 @@ class HomeScreen extends ConsumerWidget {
                             '(${user.role})',
                   textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: () => context.go(ConversationListScreen.path),
+                  icon: const Icon(Icons.forum_outlined),
+                  label: const Text('Percakapan'),
+                ),
                 if (user?.isAdmin ?? false) ...[
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
                     onPressed: () => context.go(DocumentsScreen.path),
                     icon: const Icon(Icons.folder_copy_outlined),
                     label: const Text('Kelola Dokumen'),

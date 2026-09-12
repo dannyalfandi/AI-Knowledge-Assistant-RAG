@@ -88,12 +88,125 @@ describe("getConversation", () => {
   });
 
   it("returns the conversation with its messages when owned", async () => {
-    const conversation = { id: "c1", messages: [] };
+    const conversation = { id: "c1", title: "Refund", messages: [] };
     repo.findConversationWithMessages.mockResolvedValue(conversation as never);
 
     await expect(
       conversationService.getConversation(USER_ID, "c1"),
-    ).resolves.toBe(conversation);
+    ).resolves.toEqual({ id: "c1", title: "Refund", messages: [] });
+  });
+
+  it("flattens stored citations into the same shape /ask returns", async () => {
+    repo.findConversationWithMessages.mockResolvedValue({
+      id: "c1",
+      messages: [
+        {
+          id: "m1",
+          role: "ASSISTANT",
+          content: "Refund maksimal 7 hari.",
+          createdAt: new Date("2026-09-08T00:00:00.000Z"),
+          feedbacks: [],
+          sources: [
+            {
+              similarityScore: 0.81,
+              documentChunk: {
+                id: "chunk-1",
+                content: "Refund maksimal 7 hari setelah barang diterima.",
+                chunkIndex: 5,
+                pageNumber: 4,
+                document: { id: "doc-1", originalName: "Refund Policy.pdf" },
+              },
+            },
+          ],
+        },
+      ],
+    } as never);
+
+    const result = await conversationService.getConversation(USER_ID, "c1");
+
+    expect(result.messages[0].sources).toEqual([
+      {
+        documentChunkId: "chunk-1",
+        documentId: "doc-1",
+        documentName: "Refund Policy.pdf",
+        pageNumber: 4,
+        chunkIndex: 5,
+        content: "Refund maksimal 7 hari setelah barang diterima.",
+        similarityScore: 0.81,
+      },
+    ]);
+  });
+
+  it("exposes the reader's own feedback as a single object", async () => {
+    repo.findConversationWithMessages.mockResolvedValue({
+      id: "c1",
+      messages: [
+        {
+          id: "m1",
+          role: "ASSISTANT",
+          content: "Refund maksimal 7 hari.",
+          createdAt: new Date("2026-09-08T00:00:00.000Z"),
+          sources: [],
+          feedbacks: [
+            {
+              id: "fb-1",
+              type: "NEGATIVE",
+              comment: "kurang lengkap",
+              createdAt: new Date("2026-09-08T00:00:00.000Z"),
+              updatedAt: new Date("2026-09-08T00:00:00.000Z"),
+            },
+          ],
+        },
+      ],
+    } as never);
+
+    const result = await conversationService.getConversation(USER_ID, "c1");
+
+    expect(result.messages[0].myFeedback).toMatchObject({
+      id: "fb-1",
+      type: "NEGATIVE",
+      comment: "kurang lengkap",
+    });
+  });
+
+  it("reports myFeedback as null when the reader has not rated a message", async () => {
+    repo.findConversationWithMessages.mockResolvedValue({
+      id: "c1",
+      messages: [
+        {
+          id: "m1",
+          role: "ASSISTANT",
+          content: "a",
+          createdAt: new Date("2026-09-08T00:00:00.000Z"),
+          sources: [],
+          feedbacks: [],
+        },
+      ],
+    } as never);
+
+    const result = await conversationService.getConversation(USER_ID, "c1");
+
+    expect(result.messages[0].myFeedback).toBeNull();
+  });
+
+  it("returns an empty source list for a USER message", async () => {
+    repo.findConversationWithMessages.mockResolvedValue({
+      id: "c1",
+      messages: [
+        {
+          id: "m1",
+          role: "USER",
+          content: "berapa lama refund?",
+          createdAt: new Date("2026-09-08T00:00:00.000Z"),
+          sources: [],
+          feedbacks: [],
+        },
+      ],
+    } as never);
+
+    const result = await conversationService.getConversation(USER_ID, "c1");
+
+    expect(result.messages[0].sources).toEqual([]);
   });
 });
 

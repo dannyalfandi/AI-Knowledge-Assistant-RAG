@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/providers/auth_controller.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/chat/presentation/screens/chat_screen.dart';
+import '../../features/chat/presentation/screens/conversation_list_screen.dart';
 import '../../features/documents/presentation/screens/document_detail_screen.dart';
 import '../../features/documents/presentation/screens/documents_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
@@ -82,6 +84,21 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: DocumentDetailScreen.routeSegment,
             builder: (_, state) => DocumentDetailScreen(
               documentId: state.pathParameters['id']!,
+            ),
+          ),
+        ],
+      ),
+      // Chat is for every signed-in user, not just ADMIN: the backend scopes
+      // each conversation to its owner and answers 404 for anyone else's.
+      GoRoute(
+        path: ConversationListScreen.path,
+        builder: (_, _) => const ConversationListScreen(),
+        routes: [
+          GoRoute(
+            // Relative to the parent: `/conversations/:id`.
+            path: ChatScreen.routeSegment,
+            builder: (_, state) => ChatScreen(
+              conversationId: state.pathParameters['id']!,
             ),
           ),
         ],
