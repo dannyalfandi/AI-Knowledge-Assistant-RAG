@@ -7,9 +7,7 @@ Widget _screen(String title, {String? backTo}) {
   return Scaffold(
     appBar: AppBar(
       title: Text(title),
-      leading: backTo == null
-          ? null
-          : AppBackButton(fallbackLocation: backTo),
+      leading: backTo == null ? null : AppBackButton(fallbackLocation: backTo),
     ),
   );
 }

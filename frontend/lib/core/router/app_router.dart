@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/providers/auth_controller.dart';
+import '../../features/admin/presentation/screens/dashboard_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/chat/presentation/screens/chat_screen.dart';
 import '../../features/chat/presentation/screens/conversation_list_screen.dart';
@@ -46,8 +47,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         return HomeScreen.path;
       }
 
-      // Document management is ADMIN-only, matching the backend routes.
-      if (location.startsWith(DocumentsScreen.path) && !user.isAdmin) {
+      // Document management and the dashboard are ADMIN-only, matching the
+      // backend routes that back them.
+      const adminOnlyPrefixes = [DocumentsScreen.path, DashboardScreen.path];
+
+      if (!user.isAdmin && adminOnlyPrefixes.any(location.startsWith)) {
         return ForbiddenScreen.path;
       }
 
@@ -59,17 +63,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(path: SplashScreen.path, builder: (_, _) => const SplashScreen()),
+      GoRoute(path: LoginScreen.path, builder: (_, _) => const LoginScreen()),
+      GoRoute(path: HomeScreen.path, builder: (_, _) => const HomeScreen()),
       GoRoute(
-        path: SplashScreen.path,
-        builder: (_, _) => const SplashScreen(),
-      ),
-      GoRoute(
-        path: LoginScreen.path,
-        builder: (_, _) => const LoginScreen(),
-      ),
-      GoRoute(
-        path: HomeScreen.path,
-        builder: (_, _) => const HomeScreen(),
+        path: DashboardScreen.path,
+        builder: (_, _) => const DashboardScreen(),
       ),
       GoRoute(
         path: ForbiddenScreen.path,
@@ -82,9 +81,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             // Relative to the parent, so the full path is `/documents/:id`.
             path: DocumentDetailScreen.routeSegment,
-            builder: (_, state) => DocumentDetailScreen(
-              documentId: state.pathParameters['id']!,
-            ),
+            builder: (_, state) =>
+                DocumentDetailScreen(documentId: state.pathParameters['id']!),
           ),
         ],
       ),
@@ -97,9 +95,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             // Relative to the parent: `/conversations/:id`.
             path: ChatScreen.routeSegment,
-            builder: (_, state) => ChatScreen(
-              conversationId: state.pathParameters['id']!,
-            ),
+            builder: (_, state) =>
+                ChatScreen(conversationId: state.pathParameters['id']!),
           ),
         ],
       ),
