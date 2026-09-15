@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../admin/presentation/screens/dashboard_screen.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
 import '../../../chat/presentation/screens/conversation_list_screen.dart';
 import '../../../documents/presentation/screens/documents_screen.dart';
@@ -58,6 +59,12 @@ class HomeScreen extends ConsumerWidget {
                     onPressed: () => context.go(DocumentsScreen.path),
                     icon: const Icon(Icons.folder_copy_outlined),
                     label: const Text('Kelola Dokumen'),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => context.go(DashboardScreen.path),
+                    icon: const Icon(Icons.insights_outlined),
+                    label: const Text('Dashboard'),
                   ),
                 ],
               ],
