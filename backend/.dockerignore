@@ -1,0 +1,21 @@
+node_modules
+dist
+coverage
+.git
+
+# Secrets — never bake these into an image layer.
+.env
+.env.*
+!.env.example
+
+# Generated locally, regenerated in the build stage via `prisma generate`.
+src/generated
+
+# Uploaded files — belong in a volume, not the image.
+storage/documents/*
+!storage/documents/.gitkeep
+
+*.log
+.DS_Store
+.vscode
+.idea
