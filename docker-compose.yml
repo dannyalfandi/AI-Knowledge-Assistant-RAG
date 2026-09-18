@@ -5,15 +5,113 @@ services:
     restart: unless-stopped
 
     environment:
-      POSTGRES_DB: knowledge_assistant
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-knowledge_assistant}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required — copy .env.example to .env and set it}
 
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-knowledge_assistant}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # One-shot job: applies pending Prisma migrations, then exits. `backend`
+  # only starts once this exits 0 — see its `depends_on` below. Re-running it
+  # on every `docker compose up` is cheap: `migrate deploy` only applies
+  # migrations that haven't run yet.
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: enterprise-ai-backend:local
+    container_name: enterprise-ai-migrate
+    command: ["npx", "prisma", "migrate", "deploy"]
+    restart: "no"
+
+    env_file:
+      - ./backend/.env
+
+    environment:
+      # Overrides whatever DATABASE_URL is in backend/.env (that one points at
+      # localhost:5432 for `npm run dev` on the host) — inside the compose
+      # network the database is reachable at the service name "postgres".
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-knowledge_assistant}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: enterprise-ai-backend:local
+    container_name: enterprise-ai-backend
+    restart: unless-stopped
+
+    env_file:
+      - ./backend/.env
+
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-knowledge_assistant}
+      PORT: 3000
+
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+
+    volumes:
+      # Bind mount (not a named volume) so uploaded files are also visible
+      # directly on the host, under the same path storage.ts already resolves
+      # locally — and the pattern matches the existing
+      # storage/documents/.gitignore (everything ignored except .gitkeep).
+      - ./backend/storage/documents:/app/storage/documents
+
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Serves the Flutter web build (frontend/build/web/, produced by `flutter
+  # build web --release` — NOT built inside this image, see nginx/README
+  # note in docker-compose docs) and reverse-proxies /api/* to `backend`.
+  nginx:
+    image: nginx:alpine
+    container_name: enterprise-ai-nginx
+    restart: unless-stopped
+
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/build/web:/usr/share/nginx/html:ro
+
+    ports:
+      - "${WEB_PORT:-8080}:80"
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    healthcheck:
+      # Fails loudly (unhealthy) if frontend/build/web hasn't been built yet —
+      # try_files in default.conf falls through to a missing index.html and
+      # Nginx answers 403 (empty dir, no autoindex) instead of silently
+      # serving a blank page. 127.0.0.1, not "localhost": nginx's `listen 80;`
+      # only binds IPv4, and this Alpine image resolves "localhost" to the
+      # IPv6 loopback first, which wget would then fail to reach at all.
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
 volumes:
   postgres_data:

@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      # Not run by `npm ci`'s own postinstall (that only runs
+      # `prisma skills sync`) — the Prisma client (src/generated/prisma) has
+      # to exist before `tsc`/`vitest` can resolve it. Doesn't need a real
+      # database: `prisma generate` only reads the schema, it never connects.
+      - run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/dummy
+
+      - run: npx tsc --noEmit
+
+      # All 15 test files are pure unit tests — service-layer tests mock
+      # Prisma/the repository layer plus argon2/jsonwebtoken/config-env, the
+      # rest (chunking, prompt building, validation, ...) touch no I/O at
+      # all. No Postgres service needed here.
+      - run: npm test
+
+      - run: npm run build
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.2"
+          channel: stable
+          cache: true
+
+      # Separate from flutter-action's own `cache: true` (which caches the
+      # SDK install) — this caches ~/.pub-cache so `flutter pub get` doesn't
+      # re-fetch every package on every run.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('frontend/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build web --release
