@@ -14,3 +14,8 @@ Thumbs.db
 !.vscode/settings.json
 !.vscode/launch.json
 .idea/
+
+# Local AI-assistant state and personal scratch notes — not part of the project.
+.claude/
+resume-claude.txt
+answer.md

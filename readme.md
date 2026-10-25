@@ -227,6 +227,6 @@ Karena seluruh test backend tidak menyentuh database sungguhan, seluruh suite ja
 
 ## License & Author
 
-Belum ada file `LICENSE` di repo ini — anggap *all rights reserved* sampai ditentukan lain (silakan tambah MIT/Apache-2.0 kalau berniat open-source-kan).
+**Proprietary — All rights reserved.** Repo ini publik hanya sebagai portofolio untuk dilihat dan dinilai. Dilarang menyalin, meng-clone, memodifikasi, mendistribusikan, membuat repo/project baru dari kode ini, menggunakannya secara komersial maupun pribadi, atau mengakuinya sebagai karya sendiri tanpa izin tertulis. Lihat [`LICENSE`](LICENSE) untuk detail lengkap.
 
 **Danny Alfandi** — [github.com/dannyalfandi](https://github.com/dannyalfandi)
