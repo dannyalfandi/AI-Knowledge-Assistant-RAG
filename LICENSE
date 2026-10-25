@@ -1,0 +1,69 @@
+Copyright (c) 2026 Danny Alfandi (https://github.com/dannyalfandi)
+All rights reserved.
+
+PROPRIETARY SOURCE-AVAILABLE LICENSE — VIEW ONLY
+
+This repository, including all source code, documentation, database schemas,
+prompts, configuration, designs, and other materials in it (the "Software"),
+is the exclusive property of the copyright holder. It is made publicly visible
+solely as a portfolio piece so that it can be read and evaluated.
+
+1. PERMITTED USE
+   You may view and read the Software through the website on which it is
+   hosted, for the purpose of evaluating the author's work (for example, as a
+   recruiter, hiring manager, or interviewer).
+
+2. RESTRICTIONS
+   Except as expressly permitted in Section 1 or by Section 3, you may NOT,
+   whether as an individual, company, or any other organization, and whether
+   for commercial or non-commercial purposes:
+
+   a. copy, clone, download, or reproduce the Software, in whole or in part;
+   b. create a new repository, project, or product based on, containing, or
+      derived from the Software;
+   c. modify, adapt, translate, or create derivative works of the Software;
+   d. distribute, publish, sublicense, sell, rent, or otherwise make the
+      Software available to any third party;
+   e. deploy, host, or run the Software, or use it in production, in a
+      commercial product or service, or for internal business purposes;
+   f. present the Software, or any part of it, as your own work, including in
+      a portfolio, resume, job application, academic submission, or
+      competition;
+   g. remove or alter this license or any copyright notice; or
+   h. use the Software, in whole or in part, to train, fine-tune, or evaluate
+      machine learning or artificial intelligence models.
+
+3. HOSTING PLATFORM TERMS
+   Where the Software is hosted on GitHub, GitHub's Terms of Service grant
+   GitHub users certain rights to view and fork public repositories within
+   GitHub's functionality. Those rights are granted only to the extent the
+   Terms of Service require them. A fork made under those terms receives no
+   rights beyond Section 1, and all restrictions in Section 2 continue to
+   apply to it, including the prohibition on copying the Software outside
+   GitHub, using it, modifying it, or redistributing it as a new repository
+   or project.
+
+4. PERMISSION REQUESTS
+   Any use not expressly permitted by this license requires prior written
+   permission from the copyright holder. To request permission, contact the
+   author via https://github.com/dannyalfandi.
+
+5. THIRD-PARTY COMPONENTS
+   Third-party libraries and dependencies used by the Software remain subject
+   to their own licenses. This license applies only to the original work of
+   the copyright holder.
+
+6. TERMINATION
+   Any use of the Software in violation of this license automatically
+   terminates any permission granted under it, and may constitute copyright
+   infringement subject to legal action, including takedown requests under
+   applicable law (such as the DMCA).
+
+7. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHOR OR COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+   DEALINGS IN THE SOFTWARE.
